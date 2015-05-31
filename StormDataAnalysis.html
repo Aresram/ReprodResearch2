@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 
-<title>Title</title>
+<title>Analysis of Storm Data by Injuries, Damage, etc done by Storm Events</title>
 
 <script type="text/javascript">
 window.onload = function() {
@@ -201,14 +201,295 @@ hr {
 </head>
 
 <body>
-<h1>Title</h1>
+<h1>Analysis of Storm Data by Injuries, Damage, etc done by Storm Events</h1>
 
-<h2>Synopsis or whatever</h2>
+<h2>Here Storm Data from 1950-2011 is review. Data comes from NOAA&#39;s Storm Data data set. Data is aggregated and averaged by Event type to see events have the greatest impact.</h2>
 
-<h3>Analysis</h3>
+<h3>Data Sourcing</h3>
 
-<pre><code class="r">file&lt;-download.file(&quot;http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2&quot;,&quot;repdata-data-StormData.csv.bz2&quot;,&quot;internal&quot;,quiet=TRUE)
+<p>Here, the data is loaded from the original NOAA Storm Data file. Additionally, functions needed to produce the analysis and graphs are put here.</p>
+
+<pre><code class="r">memory.limit(8190)
 </code></pre>
+
+<pre><code>## [1] 8190
+</code></pre>
+
+<pre><code class="r">filename&lt;-&quot;repdata-data-StormData.csv.bz2&quot;
+load&lt;-read.csv(filename, header=TRUE,stringsAsFactors=FALSE)
+data&lt;-load
+rm(load)
+rm(filename)
+##Multiplication
+mult&lt;-function(a,b)
+{
+
+a*b
+
+}
+
+## Translate damage units
+
+getmultiplier&lt;-function(a)
+{
+res&lt;-1
+
+if(identical(a,&quot;&quot;))
+    res&lt;-1
+else if(identical(a,&quot;-&quot;))
+    res&lt;-1
+else if(identical(a,&quot;?&quot;))
+    res&lt;-1
+else if(identical(a,&quot;+&quot;))
+    res&lt;-1
+else if(identical(a,&quot;0&quot;))
+    res&lt;-1
+else if(identical(a,&quot;1&quot;))
+    res&lt;-10
+else if(identical(a,&quot;2&quot;)||identical(a,&quot;h&quot;)||identical(a,&quot;H&quot;))
+    res&lt;-100
+else if(identical(a,&quot;3&quot;)||identical(a,&quot;K&quot;)||identical(a,&quot;k&quot;))
+    res&lt;-1000
+else if(identical(a,&quot;4&quot;))
+    res&lt;-10000
+else if(identical(a,&quot;5&quot;))
+    res&lt;-100000
+else if(identical(a,&quot;6&quot;)||identical(a,&quot;m&quot;)||identical(a,&quot;M&quot;))
+    res&lt;-1000000
+else if(identical(a,&quot;7&quot;))
+    res&lt;-10000000
+else if(identical(a,&quot;8&quot;))
+    res&lt;-100000000
+else if(identical(a,&quot;9&quot;))
+    res&lt;-1000000000
+else
+    res&lt;-1
+res
+}
+</code></pre>
+
+<h3>Data Processing</h3>
+
+<p>In the data processing the data is seperated into subsets for the human impact the events have, and the impact on property and crops.
+Also the data is evaluated for total impact per storm event type, and average impact for storm event type.</p>
+
+<pre><code class="r">impact&lt;-data.frame(data$STATE,data$TIME_ZONE,data$EVTYPE,data$BGN_DATE,data$END_DATE,data$FATALITIES, data$INJURIES, stringsAsFactors=FALSE)
+
+ materialimpact&lt;-data.frame(data$EVTYPE,data$PROPDMG, data$PROPDMGEXP, data$CROPDMG,data$CROPDMGEX,stringsAsFactors=FALSE)
+rm(data)
+
+aggFATALITIES&lt;-aggregate(impact$data.FATALITIES,list(impact$data.EVTYPE),sum)
+names(aggFATALITIES)&lt;-c(&quot;EVTYPE&quot;,&quot;TOTALFATALITIES&quot;)
+aggFATALITIES&lt;-aggFATALITIES[order(-aggFATALITIES$TOTALFATALITIES),]
+aggFATtopsix&lt;- aggFATALITIES$TOTALFATALITIES[6]
+
+
+aggINJURIES&lt;-aggregate(impact$data.INJURIES,list(impact$data.EVTYPE),sum)
+names(aggINJURIES)&lt;-c(&quot;EVTYPE&quot;,&quot;TOTALINJURIES&quot;)
+aggINJURIES&lt;-aggINJURIES[order(-aggINJURIES$TOTALINJURIES),]
+aggINJtopsix&lt;- aggINJURIES$TOTALINJURIES[6]
+
+avgFATAL&lt;-aggregate(impact$data.FATALITIES,list(impact$data.EVTYPE),mean)
+names(avgFATAL)&lt;-c(&quot;EVTYPE&quot;,&quot;avgFATALITIES&quot;)
+avgFATAL&lt;-avgFATAL[order(-avgFATAL$avgFATALITIES),]
+avgFATtopsix&lt;- avgFATAL$avgFATALITIES[6]
+
+avgINJ&lt;-aggregate(impact$data.INJURIES,list(impact$data.EVTYPE),mean)
+names(avgINJ)&lt;-c(&quot;EVTYPE&quot;,&quot;avgINJURIES&quot;)
+avgINJ&lt;-avgINJ[order(-avgINJ$avgINJURIES),]
+avgINJtopsix&lt;- avgINJ$avgINJURIES[6]
+</code></pre>
+
+<pre><code class="r">gc()
+</code></pre>
+
+<pre><code>##            used (Mb) gc trigger  (Mb) max used  (Mb)
+## Ncells   297541 15.9    1748632  93.4  2135878 114.1
+## Vcells 11496010 87.8   56077749 427.9 87499425 667.6
+</code></pre>
+
+<pre><code class="r">materialimpact$Pmultiplier&lt;-rep(NA,length(materialimpact[[1]]))
+materialimpact$Cmultiplier&lt;-rep(NA,length(materialimpact[[1]]))
+materialimpact$Pabs&lt;-rep(NA,length(materialimpact[[1]]))
+materialimpact$Cabs&lt;-rep(NA,length(materialimpact[[1]]))
+
+
+materialimpact$Pmultiplier&lt;-sapply(materialimpact$data.PROPDMGEXP,getmultiplier)
+materialimpact$Cmultiplier&lt;-sapply(materialimpact$data.CROPDMGEX,getmultiplier)
+
+
+materialimpact$Pabs&lt;-as.numeric(materialimpact$data.PROPDMG) * as.numeric(materialimpact$Pmultiplier)
+
+materialimpact$Cabs&lt;-as.numeric(materialimpact$data.CROPDMG) * as.numeric(materialimpact$Cmultiplier)
+
+
+
+aggPROP&lt;-aggregate(materialimpact$Pabs,list(materialimpact$data.EVTYPE),sum)
+names(aggPROP)&lt;-c(&quot;EVTYPE&quot;,&quot;TOTALPROPDMG&quot;)
+aggPROP&lt;-aggPROP[order(-aggPROP$TOTALPROPDMG),]
+aggPROPtopsix&lt;- aggPROP$TOTALPROPDMG[6]
+
+
+
+
+aggCROP&lt;-aggregate(materialimpact$Cabs,list(materialimpact$data.EVTYPE),sum)
+names(aggCROP)&lt;-c(&quot;EVTYPE&quot;,&quot;TOTALCROPDMG&quot;)
+aggCROP&lt;-aggCROP[order(-aggCROP$TOTALCROPDMG),]
+aggCROPtopsix&lt;- aggCROP$TOTALCROPDMG[6]
+
+avgPROP&lt;-aggregate(materialimpact$Pabs,list(materialimpact$data.EVTYPE),mean)
+names(avgPROP)&lt;-c(&quot;EVTYPE&quot;,&quot;avgPROPDMG&quot;)
+avgPROP&lt;-avgPROP[order(-avgPROP$avgPROPDMG),]
+avgPROPtopsix&lt;- avgPROP$avgPROPDMG[6]
+
+avgCROP&lt;-aggregate(materialimpact$Cabs,list(materialimpact$data.EVTYPE),mean)
+names(avgCROP)&lt;-c(&quot;EVTYPE&quot;,&quot;avgCROPDMG&quot;)
+avgCROP&lt;-avgCROP[order(-avgCROP$avgCROPDMG),]
+avgCROPtopsix&lt;- avgCROP$avgCROPDMG[6]
+</code></pre>
+
+<h3>Data Visualization</h3>
+
+<p>Here the average injuries for the top storm event type are plotted.
+The event &#39; r avgINJ$EVTYPE&#39; has the highest average injuries at &#39; r avgINJ$avgINJURIES&#39;</p>
+
+<pre><code class="r">library(lattice)
+</code></pre>
+
+<pre><code>## Warning: package &#39;lattice&#39; was built under R version 3.1.3
+</code></pre>
+
+<pre><code class="r">barchart(avgINJ$avgINJURIES~avgINJ$EVTYPE,avgINJ,subset=avgINJ$avgINJURIES&gt;=avgINJ$avgINJURIES[6],main=c(&quot;Top Avg Injuries per Event&quot;), scales=list(cex=.50))
+</code></pre>
+
+<p><img src="data:image/png;base64,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" alt="plot of chunk Plot Injuries"/> </p>
+
+<pre><code class="r">barchart(avgPROP$avgPROPDMG~avgPROP$EVTYPE,avgPROP,subset=avgPROP$avgPROPDMG&gt;=avgPROP$avgPROPDMG[6],main=c(&quot;Top Avg Property Damage per Event&quot;),scales=list(cex=.50))
+</code></pre>
+
+<p><img src="data:image/png;base64,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" alt="plot of chunk Plot Injuries"/> </p>
+
+<h3>Results</h3>
+
+<p>Here we can see the events that have the greatest total and average fatalities, injuries, property damage, and crop damage.</p>
+
+<h4>Events with the greatest total fatalities</h4>
+
+<pre><code class="r">head(aggFATALITIES)
+</code></pre>
+
+<pre><code>##             EVTYPE TOTALFATALITIES
+## 834        TORNADO            5633
+## 130 EXCESSIVE HEAT            1903
+## 153    FLASH FLOOD             978
+## 275           HEAT             937
+## 464      LIGHTNING             816
+## 856      TSTM WIND             504
+</code></pre>
+
+<h4>Events with the greatest total injuries</h4>
+
+<pre><code class="r">head(aggINJURIES)
+</code></pre>
+
+<pre><code>##             EVTYPE TOTALINJURIES
+## 834        TORNADO         91346
+## 856      TSTM WIND          6957
+## 170          FLOOD          6789
+## 130 EXCESSIVE HEAT          6525
+## 464      LIGHTNING          5230
+## 275           HEAT          2100
+</code></pre>
+
+<h4>Events with the greatest average fatalities</h4>
+
+<pre><code class="r">head(avgFATAL)
+</code></pre>
+
+<pre><code>##                         EVTYPE avgFATALITIES
+## 842 TORNADOES, TSTM WIND, HAIL     25.000000
+## 72               COLD AND SNOW     14.000000
+## 851      TROPICAL STORM GORDON      8.000000
+## 580      RECORD/EXCESSIVE HEAT      5.666667
+## 142               EXTREME HEAT      4.363636
+## 279          HEAT WAVE DROUGHT      4.000000
+</code></pre>
+
+<h4>Events with the greatest average injuries</h4>
+
+<pre><code class="r">head(avgINJ)
+</code></pre>
+
+<pre><code>##                    EVTYPE avgINJURIES
+## 277             Heat Wave        70.0
+## 851 TROPICAL STORM GORDON        43.0
+## 954            WILD FIRES        37.5
+## 821         THUNDERSTORMW        27.0
+## 366    HIGH WIND AND SEAS        20.0
+## 656       SNOW/HIGH WINDS        18.0
+</code></pre>
+
+<h4>Events with the greatest total property damage</h4>
+
+<pre><code class="r">head(aggPROP)
+</code></pre>
+
+<pre><code>##          EVTYPE TOTALPROPDMG
+## 834     TORNADO  51647380682
+## 170       FLOOD  22157709930
+## 153 FLASH FLOOD  15822673980
+## 244        HAIL  13935267515
+## 402   HURRICANE   6168319016
+## 856   TSTM WIND   4484928495
+</code></pre>
+
+<h4>Events with the greatest average property damage</h4>
+
+<pre><code class="r">head(avgPROP)
+</code></pre>
+
+<pre><code>##                      EVTYPE avgPROPDMG
+## 954              WILD FIRES  156025000
+## 271               HAILSTORM   80333333
+## 973 WINTER STORM HIGH WINDS   60000000
+## 879                 TYPHOON   54566364
+## 405         HURRICANE EMILY   50000000
+## 411       HURRICANE/TYPHOON   43248183
+</code></pre>
+
+<h4>Events with the greatest total crop damage</h4>
+
+<pre><code class="r">head(aggCROP)
+</code></pre>
+
+<pre><code>##           EVTYPE TOTALCROPDMG
+## 95       DROUGHT  12472566002
+## 170        FLOOD   5661968450
+## 244         HAIL   3025954473
+## 402    HURRICANE   2741910000
+## 153  FLASH FLOOD   1421317100
+## 140 EXTREME COLD   1292973000
+</code></pre>
+
+<h4>Events with the greatest average property damage</h4>
+
+<pre><code class="r">head(avgCROP)
+</code></pre>
+
+<pre><code>##                      EVTYPE avgCROPDMG
+## 136       EXCESSIVE WETNESS  142000000
+## 73  COLD AND WET CONDITIONS   66000000
+## 87          DAMAGING FREEZE   43683333
+## 121             Early Frost   42000000
+## 406          HURRICANE ERIN   19430000
+## 182        FLOOD/RAIN/WINDS   18800000
+</code></pre>
+
+<h3>Discussion</h3>
+
+<h4>The EVTYPE column</h4>
+
+<p>The EVTYPE columns contains many events that seem similar in description and may be references to the exact same event, as well as some miss-spellings that may misrepresent some events. Aligning event descriptions to more common events or to correctly spelled events is not something you can &ldquo;teach&rdquo; a computer without hard-coding a substitution table. Accurately cleaning the EVTYPE data requires more research into the habits and knowledge of the people who originally noted the Storm Data data or more research to develop a Natural Language Processing(NLP) algorithm. Changing the source data will only introduce a researcher bias, different persons will group &ldquo;WIND&rdquo; type events differently. However, plotting and analysing the original data will reveal what events were most damaging while preserving the bias of those who noted the data originally. Thus, our analysis will be based on descriptions from original NOAA persons with greater Storm Data prior knowledge. Through the data analysis, we see what events those NOAA persons favor. </p>
 
 </body>
 

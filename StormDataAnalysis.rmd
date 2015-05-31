@@ -1,16 +1,216 @@
-# Title
+# Analysis of Storm Data by Injuries, Damage, etc done by Storm Events
 
-## Synopsis or whatever
+## Here Storm Data from 1950-2011 is review. Data comes from NOAA's Storm Data data set. Data is aggregated and averaged by Event type to see events have the greatest impact.
 
 
-### Analysis
+### Data Sourcing
+
+Here, the data is loaded from the original NOAA Storm Data file. Additionally, functions needed to produce the analysis and graphs are put here.
 
 ```{r load}
-library(knitr)
+memory.limit(8190)
 
-file<-download.file("http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2","repdata-data-StormData.csv.bz2","internal",quiet=TRUE)
+filename<-"repdata-data-StormData.csv.bz2"
+load<-read.csv(filename, header=TRUE,stringsAsFactors=FALSE)
+data<-load
+rm(load)
+rm(filename)
+##Multiplication
+mult<-function(a,b)
+{
 
+a*b
+
+}
+
+## Translate damage units
+
+getmultiplier<-function(a)
+{
+res<-1
+
+if(identical(a,""))
+	res<-1
+else if(identical(a,"-"))
+	res<-1
+else if(identical(a,"?"))
+	res<-1
+else if(identical(a,"+"))
+	res<-1
+else if(identical(a,"0"))
+	res<-1
+else if(identical(a,"1"))
+	res<-10
+else if(identical(a,"2")||identical(a,"h")||identical(a,"H"))
+	res<-100
+else if(identical(a,"3")||identical(a,"K")||identical(a,"k"))
+	res<-1000
+else if(identical(a,"4"))
+	res<-10000
+else if(identical(a,"5"))
+	res<-100000
+else if(identical(a,"6")||identical(a,"m")||identical(a,"M"))
+	res<-1000000
+else if(identical(a,"7"))
+	res<-10000000
+else if(identical(a,"8"))
+	res<-100000000
+else if(identical(a,"9"))
+	res<-1000000000
+else
+	res<-1
+res
+}
+
+```
+
+### Data Processing
+
+In the data processing the data is seperated into subsets for the human impact the events have, and the impact on property and crops.
+Also the data is evaluated for total impact per storm event type, and average impact for storm event type.
+
+```{r Process Data}
+
+impact<-data.frame(data$STATE,data$TIME_ZONE,data$EVTYPE,data$BGN_DATE,data$END_DATE,data$FATALITIES, data$INJURIES, stringsAsFactors=FALSE)
+
+ materialimpact<-data.frame(data$EVTYPE,data$PROPDMG, data$PROPDMGEXP, data$CROPDMG,data$CROPDMGEX,stringsAsFactors=FALSE)
+rm(data)
+
+aggFATALITIES<-aggregate(impact$data.FATALITIES,list(impact$data.EVTYPE),sum)
+names(aggFATALITIES)<-c("EVTYPE","TOTALFATALITIES")
+aggFATALITIES<-aggFATALITIES[order(-aggFATALITIES$TOTALFATALITIES),]
+aggFATtopsix<- aggFATALITIES$TOTALFATALITIES[6]
+
+
+aggINJURIES<-aggregate(impact$data.INJURIES,list(impact$data.EVTYPE),sum)
+names(aggINJURIES)<-c("EVTYPE","TOTALINJURIES")
+aggINJURIES<-aggINJURIES[order(-aggINJURIES$TOTALINJURIES),]
+aggINJtopsix<- aggINJURIES$TOTALINJURIES[6]
+
+avgFATAL<-aggregate(impact$data.FATALITIES,list(impact$data.EVTYPE),mean)
+names(avgFATAL)<-c("EVTYPE","avgFATALITIES")
+avgFATAL<-avgFATAL[order(-avgFATAL$avgFATALITIES),]
+avgFATtopsix<- avgFATAL$avgFATALITIES[6]
+
+avgINJ<-aggregate(impact$data.INJURIES,list(impact$data.EVTYPE),mean)
+names(avgINJ)<-c("EVTYPE","avgINJURIES")
+avgINJ<-avgINJ[order(-avgINJ$avgINJURIES),]
+avgINJtopsix<- avgINJ$avgINJURIES[6]
 
 
 
 ```
+
+```{r Process Material Damage}
+gc()
+
+materialimpact$Pmultiplier<-rep(NA,length(materialimpact[[1]]))
+materialimpact$Cmultiplier<-rep(NA,length(materialimpact[[1]]))
+materialimpact$Pabs<-rep(NA,length(materialimpact[[1]]))
+materialimpact$Cabs<-rep(NA,length(materialimpact[[1]]))
+
+
+materialimpact$Pmultiplier<-sapply(materialimpact$data.PROPDMGEXP,getmultiplier)
+materialimpact$Cmultiplier<-sapply(materialimpact$data.CROPDMGEX,getmultiplier)
+
+
+materialimpact$Pabs<-as.numeric(materialimpact$data.PROPDMG) * as.numeric(materialimpact$Pmultiplier)
+
+materialimpact$Cabs<-as.numeric(materialimpact$data.CROPDMG) * as.numeric(materialimpact$Cmultiplier)
+
+
+
+aggPROP<-aggregate(materialimpact$Pabs,list(materialimpact$data.EVTYPE),sum)
+names(aggPROP)<-c("EVTYPE","TOTALPROPDMG")
+aggPROP<-aggPROP[order(-aggPROP$TOTALPROPDMG),]
+aggPROPtopsix<- aggPROP$TOTALPROPDMG[6]
+
+
+
+
+aggCROP<-aggregate(materialimpact$Cabs,list(materialimpact$data.EVTYPE),sum)
+names(aggCROP)<-c("EVTYPE","TOTALCROPDMG")
+aggCROP<-aggCROP[order(-aggCROP$TOTALCROPDMG),]
+aggCROPtopsix<- aggCROP$TOTALCROPDMG[6]
+
+avgPROP<-aggregate(materialimpact$Pabs,list(materialimpact$data.EVTYPE),mean)
+names(avgPROP)<-c("EVTYPE","avgPROPDMG")
+avgPROP<-avgPROP[order(-avgPROP$avgPROPDMG),]
+avgPROPtopsix<- avgPROP$avgPROPDMG[6]
+
+avgCROP<-aggregate(materialimpact$Cabs,list(materialimpact$data.EVTYPE),mean)
+names(avgCROP)<-c("EVTYPE","avgCROPDMG")
+avgCROP<-avgCROP[order(-avgCROP$avgCROPDMG),]
+avgCROPtopsix<- avgCROP$avgCROPDMG[6]
+
+```
+
+
+
+### Data Visualization
+
+Here the average injuries for the top storm event type are plotted.
+The event ' r avgINJ$EVTYPE' has the highest average injuries at ' r avgINJ$avgINJURIES'
+
+```{r Plot Injuries}
+library(lattice)
+
+barchart(avgINJ$avgINJURIES~avgINJ$EVTYPE,avgINJ,subset=avgINJ$avgINJURIES>=avgINJ$avgINJURIES[6],main=c("Top Avg Injuries per Event"), scales=list(cex=.50))
+
+barchart(avgPROP$avgPROPDMG~avgPROP$EVTYPE,avgPROP,subset=avgPROP$avgPROPDMG>=avgPROP$avgPROPDMG[6],main=c("Top Avg Property Damage per Event"),scales=list(cex=.50))
+
+
+```
+
+### Results
+
+Here we can see the events that have the greatest total and average fatalities, injuries, property damage, and crop damage.
+
+#### Events with the greatest total fatalities
+```{r Data Discussion}
+head(aggFATALITIES)
+```
+#### Events with the greatest total injuries
+```{r Data Discussion aggI}
+head(aggINJURIES)
+```
+#### Events with the greatest average fatalities
+```{r Data Discussion avgF}
+head(avgFATAL)
+```
+#### Events with the greatest average injuries
+```{r Data Discussion avgI}
+head(avgINJ)
+```
+#### Events with the greatest total property damage
+```{r Data Discussion aggP}
+head(aggPROP)
+```
+#### Events with the greatest average property damage
+```{r Data Discussion avgP}
+head(avgPROP)
+```
+#### Events with the greatest total crop damage
+```{r Data Discussion aggC}
+head(aggCROP)
+```
+#### Events with the greatest average property damage
+```{r Data Discussion avgC}
+head(avgCROP)
+```
+
+### Discussion
+
+#### The EVTYPE column
+The EVTYPE columns contains many events that seem similar in description and may be references to the exact same event, as well as some miss-spellings that may misrepresent some events. Aligning event descriptions to more common events or to correctly spelled events is not something you can "teach" a computer without hard-coding a substitution table. Accurately cleaning the EVTYPE data requires more research into the habits and knowledge of the people who originally noted the Storm Data data or more research to develop a Natural Language Processing(NLP) algorithm. Changing the source data will only introduce a researcher bias, different persons will group "WIND" type events differently. However, plotting and analysing the original data will reveal what events were most damaging while preserving the bias of those who noted the data originally. Thus, our analysis will be based on descriptions from original NOAA persons with greater Storm Data prior knowledge. Through the data analysis, we see what events those NOAA persons favor. 
+
+
+
+
+
+
+
+
+
+
+
